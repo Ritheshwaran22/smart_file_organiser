@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart File Organizer | Automated Directory Categorizer & Deduplicator</title>
+    <meta name="description" content="Production-ready Smart File Organizer that automatically categorizes messy folders, resolves duplicate files, and enables 1-click reversible undo.">
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    
+    <!-- Stylesheet -->
+    {% load static %}
+    <link rel="stylesheet" href="{% static 'organizer_app/css/style.css' %}">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Top Navigation Bar -->
+        <header class="app-header">
+            <div class="brand-group">
+                <div class="brand-icon">
+                    <span class="pulse-ring"></span>
+                    📁
+                </div>
+                <div>
+                    <h1 class="app-title">Smart File Organizer</h1>
+                    <p class="app-subtitle">Intelligent Automation & Reversible Directory Categorizer</p>
+                </div>
+            </div>
+            
+            <div class="header-actions">
+                <button id="btn-demo-sandbox" class="btn btn-secondary" title="Create a safe mock folder with 25+ test files">
+                    <span class="btn-icon">🧪</span>
+                    <span>Generate Demo Sandbox</span>
+                </button>
+                <button id="btn-view-history" class="btn btn-secondary" title="View past organization batches and rollback">
+                    <span class="btn-icon">📜</span>
+                    <span>Undo & History</span>
+                </button>
+                <button id="btn-custom-rules" class="btn btn-secondary" title="Configure custom file categories & extensions">
+                    <span class="btn-icon">⚙️</span>
+                    <span>Custom Rules</span>
+                </button>
+            </div>
+        </header>
+
+        <!-- Notification / Toast Container -->
+        <div id="toast-container" class="toast-container"></div>
+
+        <!-- Main Workspace Grid -->
+        <main class="main-layout">
+            <!-- Left Panel: Configuration & Actions -->
+            <section class="config-panel glass-card">
+                <div class="panel-header">
+                    <div class="step-badge">1</div>
+                    <div>
+                        <h2>Directory & Settings</h2>
+                        <p class="section-desc">Select folder and configure organization rules</p>
+                    </div>
+                </div>
+
+                <!-- Directory Input & Shortcuts -->
+                <div class="form-group">
+                    <label for="input-target-dir" class="form-label">
+                        <span>Target Directory Path</span>
+                        <span class="label-hint">Paste full path or click a shortcut</span>
+                    </label>
+                    <div class="input-with-actions">
+                        <input type="text" id="input-target-dir" class="form-control" placeholder="e.g. C:\Users\YourName\Downloads" autocomplete="off" spellcheck="false">
+                        <button id="btn-clear-path" class="input-clear-btn" title="Clear path">✕</button>
+                    </div>
+                    
+                    <!-- Quick Shortcuts -->
+                    <div class="shortcuts-row">
+                        <span class="shortcuts-label">Quick Shortcuts:</span>
+                        <div class="shortcut-pills">
+                            {% for name, path in shortcuts.items %}
+                            <button type="button" class="shortcut-pill" data-path="{{ path }}">{{ name }}</button>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Organization Strategy Grid -->
+                <div class="form-group">
+                    <label class="form-label">
+                        <span>Organization Strategy</span>
+                    </label>
+                    <div class="strategy-grid">
+                        {% for strat in strategies %}
+                        <label class="strategy-card {% if forloop.first %}active{% endif %}">
+                            <input type="radio" name="strategy" value="{{ strat.id }}" {% if forloop.first %}checked{% endif %}>
+                            <div class="strategy-content">
+                                <span class="strategy-name">{{ strat.name }}</span>
+                                <span class="strategy-desc">{{ strat.desc }}</span>
+                            </div>
+                            <span class="check-indicator">✓</span>
+                        </label>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <!-- Duplicate Handling & Options -->
+                <div class="form-group">
+                    <label for="select-duplicate-strategy" class="form-label">
+                        <span>Duplicate Conflict Resolution</span>
+                    </label>
+                    <select id="select-duplicate-strategy" class="form-select">
+                        {% for dup in duplicate_strategies %}
+                        <option value="{{ dup.id }}">{{ dup.name }} &mdash; {{ dup.desc }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Toggle Options -->
+                <div class="options-group">
+                    <label class="toggle-option">
+                        <input type="checkbox" id="check-recursive">
+                        <span class="toggle-switch"></span>
+                        <span class="toggle-text">
+                            <strong>Recursive Scan</strong>
+                            <small>Include subdirectories and nested folders</small>
+                        </span>
+                    </label>
+
+                    <label class="toggle-option">
+                        <input type="checkbox" id="check-clean-empty" checked>
+                        <span class="toggle-switch"></span>
+                        <span class="toggle-text">
+                            <strong>Clean Empty Folders</strong>
+                            <small>Remove leftover empty directories after moving</small>
+                        </span>
+                    </label>
+
+                    <label class="toggle-option">
+                        <input type="checkbox" id="check-dry-run">
+                        <span class="toggle-switch"></span>
+                        <span class="toggle-text">
+                            <strong>Dry-Run Mode (Simulation)</strong>
+                            <small>Preview planned moves safely without modifying files</small>
+                        </span>
+                    </label>
+                </div>
+
+                <!-- Primary Action Buttons -->
+                <div class="action-buttons-group">
+                    <button id="btn-scan" class="btn btn-primary btn-lg">
+                        <span class="btn-icon">🔍</span>
+                        <span>Scan & Preview</span>
+                    </button>
+                    <button id="btn-organize" class="btn btn-success btn-lg">
+                        <span class="btn-icon">🚀</span>
+                        <span>Organize Now</span>
+                    </button>
+                    <button id="btn-undo-quick" class="btn btn-warning" title="Revert the most recent operation">
+                        <span class="btn-icon">↩️</span>
+                        <span>Undo Last Operation</span>
+                    </button>
+                </div>
+            </section>
+
+            <!-- Right Panel: Live Stats, Category Distribution & Files Table -->
+            <section class="results-panel">
+                <!-- Summary Metrics Ribbon -->
+                <div class="metrics-grid">
+                    <div class="metric-card glass-card">
+                        <div class="metric-icon" style="background: rgba(59, 130, 246, 0.15); color: #3b82f6;">📄</div>
+                        <div class="metric-data">
+                            <span class="metric-value" id="stat-total-files">0</span>
+                            <span class="metric-label">Total Files Detected</span>
+                        </div>
+                    </div>
+                    <div class="metric-card glass-card">
+                        <div class="metric-icon" style="background: rgba(16, 185, 129, 0.15); color: #10b981;">💾</div>
+                        <div class="metric-data">
+                            <span class="metric-value" id="stat-total-size">0 B</span>
+                            <span class="metric-label">Total Directory Size</span>
+                        </div>
+                    </div>
+                    <div class="metric-card glass-card">
+                        <div class="metric-icon" style="background: rgba(139, 92, 246, 0.15); color: #8b5cf6;">📁</div>
+                        <div class="metric-data">
+                            <span class="metric-value" id="stat-total-categories">0</span>
+                            <span class="metric-label">Target Categories</span>
+                        </div>
+                    </div>
+                    <div class="metric-card glass-card">
+                        <div class="metric-icon" style="background: rgba(245, 158, 11, 0.15); color: #f59e0b;">⚡</div>
+                        <div class="metric-data">
+                            <span class="metric-value" id="stat-active-status">Ready</span>
+                            <span class="metric-label">Engine Status</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Categories Distribution Cards -->
+                <div class="categories-container glass-card">
+                    <div class="section-title-row">
+                        <h3>📊 Category Distribution</h3>
+                        <span class="badge" id="badge-category-count">0 Categories</span>
+                    </div>
+                    <div id="category-cards-grid" class="category-cards-grid">
+                        <div class="empty-state-mini">No directory scanned yet. Choose a folder on the left and click "Scan & Preview".</div>
+                    </div>
+                </div>
+
+                <!-- Scanned Files Interactive Table -->
+                <div class="files-container glass-card">
+                    <div class="files-header-row">
+                        <div>
+                            <h3>📑 Scanned & Planned File Movements</h3>
+                            <p class="section-desc" id="files-table-subtitle">Before & After destination mapping</p>
+                        </div>
+                        <div class="table-search-box">
+                            <input type="text" id="table-search" placeholder="Filter by filename or extension..." class="form-control-sm">
+                        </div>
+                    </div>
+
+                    <div class="table-wrapper">
+                        <table class="data-table" id="scanned-files-table">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Original File</th>
+                                    <th>Category</th>
+                                    <th>Size</th>
+                                    <th>Proposed Target Folder</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="files-table-body">
+                                <tr>
+                                    <td colspan="6" class="table-empty-cell">
+                                        <div class="empty-state-content">
+                                            <span class="empty-icon">📂</span>
+                                            <h4>No Files Loaded</h4>
+                                            <p>Scan a directory or generate a demo sandbox to preview file movements.</p>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Activity Log Terminal -->
+                <div class="terminal-container glass-card">
+                    <div class="terminal-header">
+                        <div class="terminal-title">
+                            <span class="terminal-dot dot-red"></span>
+                            <span class="terminal-dot dot-yellow"></span>
+                            <span class="terminal-dot dot-green"></span>
+                            <span class="terminal-label">Activity & Execution Logs</span>
+                        </div>
+                        <div class="terminal-actions">
+                            <button id="btn-clear-logs" class="btn-xs" title="Clear console">Clear</button>
+                            <button id="btn-export-logs" class="btn-xs" title="Export logs as text">Export</button>
+                        </div>
+                    </div>
+                    <div id="terminal-console" class="terminal-console">
+                        <div class="log-entry log-info">[SYSTEM] Smart File Organizer Engine initialized and ready.</div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- History & Undo Modal -->
+    <div id="history-modal" class="modal-overlay">
+        <div class="modal-card glass-card">
+            <div class="modal-header">
+                <div class="modal-title-group">
+                    <span class="modal-icon">📜</span>
+                    <h3>Organization History & Rollback Center</h3>
+                </div>
+                <button class="modal-close-btn" id="btn-close-history">✕</button>
+            </div>
+            <div class="modal-body">
+                <p class="modal-description">Every batch operation is tracked in the transaction ledger. You can safely rollback any past session.</p>
+                <div id="history-list" class="history-list">
+                    <div class="history-loading">Loading transaction history...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Custom Rules Modal -->
+    <div id="rules-modal" class="modal-overlay">
+        <div class="modal-card glass-card">
+            <div class="modal-header">
+                <div class="modal-title-group">
+                    <span class="modal-icon">⚙️</span>
+                    <h3>Custom Category Mapping Rules</h3>
+                </div>
+                <button class="modal-close-btn" id="btn-close-rules">✕</button>
+            </div>
+            <div class="modal-body">
+                <p class="modal-description">Define custom category names and assign file extensions (comma-separated).</p>
+                <div class="rules-form">
+                    <div class="rule-inputs-row">
+                        <input type="text" id="custom-rule-cat" placeholder="Category Name (e.g. 3D Models)" class="form-control">
+                        <input type="text" id="custom-rule-exts" placeholder="Extensions (e.g. stl, obj, blend, fbx)" class="form-control">
+                        <button id="btn-add-custom-rule" class="btn btn-primary">Add Rule</button>
+                    </div>
+                </div>
+                <div id="custom-rules-list" class="custom-rules-list"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Application Script -->
+    <script src="{% static 'organizer_app/js/app.js' %}"></script>
+</body>
+</html>
